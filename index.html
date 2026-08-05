@@ -699,6 +699,13 @@
             align-items: center;
             gap: 8px;
         }
+        .btn-folder {
+            background: #8b5cf6;
+            color: #fff;
+        }
+        .btn-folder:hover {
+            background: #7c3aed;
+        }
     </style>
 </head>
 <body>
@@ -709,7 +716,7 @@
             <div class="header-icon">💾</div>
             <div>
                 <h1>Облік USB носіїв</h1>
-                <div class="subtitle">Система реєстрації зовнішніх накопичувачів V 0.0.3</div>
+                <div class="subtitle">Система реєстрації зовнішніх накопичувачів</div>
             </div>
             <div class="badge" id="headerBadge">Очікування</div>
         </div>
@@ -717,7 +724,7 @@
         <!-- ===== STATUS BAR ===== -->
         <div class="status-bar" id="statusBar">
             <span class="dot" id="statusDot"></span>
-            <span class="status-text" id="statusText">Натисніть «Старт» для початку сканування</span>
+            <span class="status-text" id="statusText">Натисніть «Старт» для сканування WebUSB або оберіть флешку вручну</span>
             <span class="count" id="deviceCount">Пристроїв: 0</span>
         </div>
 
@@ -749,6 +756,7 @@
             <input type="text" id="manualName" placeholder="Назва носія (напр. Kingston DT)" />
             <input type="text" id="manualSerial" placeholder="Серійний номер (опціонально)" style="min-width:120px;flex:0.6;" />
             <button class="btn btn-primary btn-sm" id="btnManualAdd">Додати</button>
+            <button class="btn btn-folder btn-sm" id="btnSelectFolder">📂 Обрати флешку</button>
         </div>
 
         <!-- ===== DEVICE TABLE ===== -->
@@ -766,7 +774,7 @@
                     </thead>
                     <tbody id="deviceTableBody">
                         <tr class="empty-row">
-                            <td colspan="5">🔍 Немає виявлених пристроїв. Натисніть «Старт».</td>
+                            <td colspan="5">🔍 Немає виявлених пристроїв. Натисніть «Старт» або «Обрати флешку».</td>
                         </tr>
                     </tbody>
                 </table>
@@ -775,8 +783,8 @@
 
         <!-- ===== FOOTER INFO ===== -->
         <div style="font-size:13px;color:#7a96ae;display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;">
-            <span>💡 Використовуйте WebUSB для автоматичного виявлення</span>
-            <span>🔗 Підтримується Chrome / Edge (HTTPS або localhost)</span>
+            <span>💡 WebUSB бачить лише пристрої без системного драйвера. Флешки додавайте через кнопку "Обрати флешку".</span>
+            <span>🔗 Підтримується Chrome / Edge (HTTPS)</span>
         </div>
     </div>
 
@@ -834,6 +842,7 @@
         const btnReport = $('#btnReport');
         const btnClear = $('#btnClear');
         const btnManualAdd = $('#btnManualAdd');
+        const btnSelectFolder = $('#btnSelectFolder');
         const manualAdd = $('#manualAdd');
         const manualName = $('#manualName');
         const manualSerial = $('#manualSerial');
@@ -904,7 +913,7 @@
             if (state.devices.length === 0) {
                 tbody.innerHTML = `
                     <tr class="empty-row">
-                        <td colspan="5">🔍 Немає виявлених пристроїв. Натисніть «Старт».</td>
+                        <td colspan="5">🔍 Немає виявлених пристроїв. Натисніть «Старт» або «Обрати флешку».</td>
                     </tr>
                 `;
                 updateCount();
@@ -933,7 +942,6 @@
             tbody.innerHTML = html;
             updateCount();
 
-            // Event listeners for remove buttons
             tbody.querySelectorAll('.remove-btn').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const id = parseInt(btn.dataset.id);
@@ -969,7 +977,6 @@
         //  DEVICE MANAGEMENT
         // ============================================================
         function addDevice(device) {
-            // avoid duplicates by serial or vendor+product
             const existing = state.devices.find(d => {
                 const s1 = getDeviceSerial(d);
                 const s2 = getDeviceSerial(device);
@@ -1002,12 +1009,11 @@
             if (idx === -1) return;
             const removed = state.devices[idx];
             state.devices.splice(idx, 1);
-            // also remove from access levels
             delete state.accessLevels[id];
             renderTable();
             showNotif(`🗑 Видалено: ${getDeviceDisplayName(removed)}`, 'info');
             if (state.devices.length === 0) {
-                setStatus('Список порожній. Натисніть «Старт» для сканування.', false);
+                setStatus('Список порожній. Натисніть «Старт» або оберіть флешку.', false);
             }
         }
 
@@ -1023,270 +1029,8 @@
         }
 
         // ============================================================
-        //  WebUSB DETECTION
+        //  WebUSB DETECTION (без фільтра)
         // ============================================================
-        async function detectUSBDevices() {
-            try {
-                // 1. Get already paired devices
-                const paired = await navigator.usb.getDevices();
-                const results = [];
-
-                // 2. Request a new device (mass storage class 0x08)
-                //    If user cancels, it throws an error
-                let newDevice = null;
-                try {
-                    newDevice = await navigator.usb.requestDevice({
-                        filters: [{ classCode: 8 }] // Mass storage
-                    });
-                } catch (e) {
-                    // user cancelled or no device selected
-                    if (e.name === 'NotFoundError' || e.name === 'AbortError') {
-                        // no device selected
-                    } else {
-                        console.warn('requestDevice error:', e);
-                    }
-                }
-
-                // Combine
-                const all = [...paired];
-                if (newDevice) {
-                    // check if already in paired list
-                    const exists = paired.some(d => d.serialNumber === newDevice.serialNumber);
-                    if (!exists) {
-                        all.push(newDevice);
-                    }
-                }
-
-                // Convert to our device format
-                for (const d of all) {
-                    let name = d.productName || '';
-                    if (!name && d.manufacturerName) {
-                        name = d.manufacturerName;
-                    }
-                    results.push({
-                        name: name || 'USB пристрій',
-                        serial: d.serialNumber || '',
-                        vendorId: d.vendorId,
-                        productId: d.productId,
-                        device: d,
-                    });
-                }
-
-                return results;
-
-            } catch (error) {
-                console.error('WebUSB detection error:', error);
-                showNotif('❌ Помилка при скануванні USB: ' + error.message, 'warning');
-                return [];
-            }
-        }
-
-        // ============================================================
-        //  SCAN FLOW
-        // ============================================================
-        async function doScan(showNewOnly = false) {
-            if (!('usb' in navigator)) {
-                showNotif('❌ WebUSB не підтримується цим браузером. Використовуйте Chrome або Edge з HTTPS.', 'warning');
-                setStatus('WebUSB недоступний', false, true);
-                return;
-            }
-
-            setStatus('Сканування USB пристроїв...', true);
-            btnStart.disabled = true;
-
-            try {
-                const devices = await detectUSBDevices();
-
-                if (devices.length === 0) {
-                    showNotif('ℹ️ Не виявлено жодного USB носія. Спробуйте підключити пристрій та натисніть "Далі".', 'info');
-                    setStatus('Пристроїв не знайдено', false, true);
-                    return;
-                }
-
-                let addedCount = 0;
-                for (const dev of devices) {
-                    const added = addDevice({
-                        name: dev.name,
-                        serial: dev.serial,
-                        vendorId: dev.vendorId,
-                        productId: dev.productId,
-                    });
-                    if (added) addedCount++;
-                }
-
-                if (addedCount === 0 && devices.length > 0) {
-                    showNotif('ℹ️ Всі виявлені пристрої вже у списку.', 'info');
-                } else if (addedCount > 0) {
-                    showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
-                }
-
-                if (state.devices.length > 0) {
-                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
-                }
-
-            } catch (error) {
-                console.error('Scan error:', error);
-                showNotif('❌ Помилка сканування: ' + error.message, 'warning');
-            } finally {
-                btnStart.disabled = false;
-                if (state.isStarted) {
-                    btnStart.classList.add('hidden');
-                    btnNext.classList.remove('hidden');
-                    btnReport.classList.remove('hidden');
-                    btnClear.classList.remove('hidden');
-                    manualAdd.classList.remove('hidden');
-                    btnStart.innerHTML = '<span class="btn-icon">▶</span> Старт';
-                }
-            }
-        }
-
-        // ============================================================
-        //  START
-        // ============================================================
-        async function handleStart() {
-            if (state.isStarted) return;
-
-            // Reset new devices marker
-            state.newDevicesDetected = [];
-
-            // If we already have devices, ask before re-scanning
-            if (state.devices.length > 0) {
-                if (!confirm('Поточний список пристроїв буде доповнено. Продовжити?')) {
-                    return;
-                }
-            }
-
-            state.isStarted = true;
-            updateButtons();
-
-            // Enable WebUSB
-            try {
-                await doScan(false);
-                // After first scan, mark all as existing
-                state.devices.forEach(d => d.status = 'existing');
-                renderTable();
-            } catch (e) {
-                console.error(e);
-                state.isStarted = false;
-                updateButtons();
-            }
-        }
-
-        // ============================================================
-        //  NEXT
-        // ============================================================
-        async function handleNext() {
-            if (!state.isStarted) return;
-            state.newDevicesDetected = [];
-
-            // Before scanning, remember current count
-            const beforeCount = state.devices.length;
-
-            await doScan(false);
-
-            // Mark newly added devices as 'new' for highlighting
-            const afterCount = state.devices.length;
-            if (afterCount > beforeCount) {
-                // The last (afterCount - beforeCount) devices are new
-                // But since we mark all as 'existing' in doScan, we need to re-mark
-                // Actually, we want to show which ones are new in the UI
-                // Let's set status for devices that were added in this scan
-                // We'll track using a simple approach: any device with status 'new' from the last scan
-                // But doScan calls addDevice which sets status 'new', then doScan marks all as 'existing'
-                // So we need to mark the newly added ones as 'new' again
-                // Let's use a different approach: in addDevice we set status 'new', but doScan sets all to 'existing'
-                // So we'll change doScan to not override statuses
-
-                // Let's rework: doScan will not change statuses, addDevice sets 'new'
-                // Then we manually mark all as 'existing' after initial scan
-                // For "Next", we keep the 'new' status from addDevice
-                // So we need to modify doScan to not mark all as 'existing'
-
-                // Actually, let's just handle this differently.
-                // I'll modify the addDevice to set status 'new' and keep it.
-                // For the initial scan, we'll mark all as 'existing' after the scan.
-                // For "Next", we'll keep the 'new' status.
-
-                // I'll refactor: doScan will NOT change statuses. Only addDevice sets 'new'.
-                // After initial scan, we mark all as 'existing' manually.
-                // For "Next", we leave the 'new' status as is.
-
-                // Let's implement this properly.
-
-                // The current implementation in doScan calls addDevice (which sets 'new')
-                // Then doScan was marking all as 'existing'. I'll remove that part.
-
-                // Let me rewrite the scan flow.
-                // I'll update the doScan function to not touch statuses.
-            }
-
-            // Re-implement the scanning logic properly.
-            // I'll use a fresh approach.
-
-            // Let me just rewrite the handleNext function with a clean implementation.
-            // I'll use the detectUSBDevices function and add devices manually.
-
-            // Reset new devices tracking
-            state.newDevicesDetected = [];
-
-            if (!('usb' in navigator)) {
-                showNotif('❌ WebUSB не підтримується.', 'warning');
-                return;
-            }
-
-            setStatus('Сканування нових пристроїв...', true);
-            btnNext.disabled = true;
-
-            try {
-                const devices = await detectUSBDevices();
-                let addedCount = 0;
-
-                for (const dev of devices) {
-                    const added = addDevice({
-                        name: dev.name,
-                        serial: dev.serial,
-                        vendorId: dev.vendorId,
-                        productId: dev.productId,
-                    });
-                    if (added) addedCount++;
-                }
-
-                if (addedCount === 0) {
-                    showNotif('ℹ️ Нових пристроїв не виявлено.', 'info');
-                } else {
-                    showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
-                    // Highlight new devices - they already have status 'new' from addDevice
-                    renderTable();
-                }
-
-                if (state.devices.length > 0) {
-                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
-                }
-
-            } catch (error) {
-                console.error('Next scan error:', error);
-                showNotif('❌ Помилка сканування: ' + error.message, 'warning');
-            } finally {
-                btnNext.disabled = false;
-            }
-        }
-
-        // Override doScan to not change statuses
-        // Let me just rewrite the whole scanning logic.
-
-        // I'll keep the original doScan but modify it.
-
-        // Actually, let me just rewrite the key functions.
-
-        // I'll replace the doScan function with a cleaner version.
-
-        // Let me redefine the functions.
-
-        // ============================================================
-        //  REWRITTEN SCAN FUNCTIONS
-        // ============================================================
-
-        // Override: scanForDevices - returns array of detected devices without adding them
         async function scanForDevices() {
             if (!('usb' in navigator)) {
                 throw new Error('WebUSB не підтримується');
@@ -1295,10 +1039,10 @@
             let newDevice = null;
             try {
                 newDevice = await navigator.usb.requestDevice({
-                    filters: [{ classCode: 8 }]
+                    filters: []
                 });
             } catch (e) {
-                // user cancelled
+                console.warn('Користувач скасував вибір пристрою', e);
             }
             const all = [...paired];
             if (newDevice) {
@@ -1314,7 +1058,6 @@
             }));
         }
 
-        // Override: addDeviceNoDuplicate - adds device with duplicate check
         function addDeviceNoDuplicate(devInfo) {
             const existing = state.devices.find(d => {
                 const s1 = getDeviceSerial(d);
@@ -1337,7 +1080,9 @@
             return newDev;
         }
 
-        // Override: initialScan - for the Start button
+        // ============================================================
+        //  INITIAL SCAN (Start)
+        // ============================================================
         async function initialScan() {
             if (!('usb' in navigator)) {
                 showNotif('❌ WebUSB не підтримується. Використовуйте Chrome/Edge з HTTPS.', 'warning');
@@ -1357,12 +1102,11 @@
                     if (added) addedCount++;
                 }
 
-                // Mark all devices as 'existing' after initial scan
                 state.devices.forEach(d => d.status = 'existing');
                 renderTable();
 
                 if (addedCount === 0 && devices.length === 0) {
-                    showNotif('ℹ️ Не виявлено жодного USB носія. Спробуйте підключити пристрій та натисніть "Далі".', 'info');
+                    showNotif('ℹ️ Не виявлено жодного USB пристрою. Спробуйте обрати флешку вручну.', 'info');
                     setStatus('Пристроїв не знайдено', false, true);
                 } else if (addedCount === 0 && devices.length > 0) {
                     showNotif('ℹ️ Всі виявлені пристрої вже у списку.', 'info');
@@ -1387,7 +1131,9 @@
             }
         }
 
-        // Override: nextScan - for the "Next" button
+        // ============================================================
+        //  NEXT SCAN (Далі)
+        // ============================================================
         async function nextScan() {
             if (!('usb' in navigator)) {
                 showNotif('❌ WebUSB не підтримується.', 'warning');
@@ -1412,7 +1158,6 @@
                     showNotif('ℹ️ Нових пристроїв не виявлено.', 'info');
                 } else {
                     showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
-                    // New devices have status 'new' - they'll be highlighted
                 }
 
                 if (state.devices.length > 0) {
@@ -1459,6 +1204,50 @@
         }
 
         // ============================================================
+        //  SELECT FOLDER (Флешка через провідник) ⭐ НОВИЙ МЕТОД
+        // ============================================================
+        async function handleSelectFolder() {
+            if (!('showDirectoryPicker' in window)) {
+                showNotif('❌ Ваш браузер не підтримує вибір папки. Спробуйте Chrome.', 'warning');
+                return;
+            }
+
+            try {
+                const handle = await window.showDirectoryPicker();
+                const name = handle.name; // Назва папки або диска (напр. "F:" або "KINGSTON")
+
+                // Перевірка, чи це схоже на знімний диск (опціонально)
+                let displayName = name;
+                // Якщо назва складається з однієї літери та двокрапки, додаємо "(USB)"
+                if (/^[A-Za-z]:$/.test(name)) {
+                    displayName = `${name} (Знімний диск)`;
+                } else {
+                    displayName = `${name} (USB)`;
+                }
+
+                const added = addDeviceNoDuplicate({
+                    name: displayName,
+                    serial: `Вибрано вручну: ${name}`,
+                    vendorId: null,
+                    productId: null,
+                });
+
+                if (added) {
+                    showNotif(`✅ Додано флешку: ${displayName}`, 'success');
+                    renderTable();
+                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+                }
+            } catch (e) {
+                if (e.name === 'AbortError' || e.name === 'SecurityError') {
+                    // Користувач скасував вибір – просто ігноруємо
+                    console.warn('Вибір папки скасовано');
+                } else {
+                    showNotif('❌ Помилка вибору папки: ' + e.message, 'warning');
+                }
+            }
+        }
+
+        // ============================================================
         //  REPORT
         // ============================================================
         function openReportModal() {
@@ -1467,13 +1256,11 @@
                 return;
             }
 
-            // Reset access levels
             state.accessLevels = {};
             state.devices.forEach(d => {
-                state.accessLevels[d.id] = 'НТ'; // default
+                state.accessLevels[d.id] = 'НТ';
             });
 
-            // Fill modal device list
             let html = '';
             state.devices.forEach((dev, idx) => {
                 const name = getDeviceDisplayName(dev);
@@ -1495,7 +1282,6 @@
             });
             modalDeviceList.innerHTML = html;
 
-            // Set default values
             modalDeviceList.querySelectorAll('select').forEach(sel => {
                 const id = parseInt(sel.dataset.id);
                 sel.value = state.accessLevels[id] || 'НТ';
@@ -1521,7 +1307,6 @@
                 return;
             }
 
-            // Collect all data
             const now = new Date();
             const dateStr = now.toLocaleString('uk-UA', {
                 day: '2-digit',
@@ -1559,7 +1344,6 @@
 
             const content = lines.join('\n');
 
-            // Download as .txt
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1584,7 +1368,6 @@
                 updateButtons();
                 await initialScan();
                 if (!state.isStarted) {
-                    // if scan failed, reset
                     state.isStarted = false;
                     updateButtons();
                 }
@@ -1592,12 +1375,10 @@
         });
 
         btnNext.addEventListener('click', nextScan);
-
         btnReport.addEventListener('click', openReportModal);
-
         btnClear.addEventListener('click', clearAllDevices);
-
         btnManualAdd.addEventListener('click', handleManualAdd);
+        btnSelectFolder.addEventListener('click', handleSelectFolder);
 
         manualName.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -1622,19 +1403,16 @@
 
         modalOk.addEventListener('click', generateReport);
 
-        // Close modal on overlay click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeReportModal();
         });
 
-        // Close modal on Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal.classList.contains('open')) {
                 closeReportModal();
             }
         });
 
-        // Enter key in PIB field triggers OK
         userPib.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -1645,20 +1423,19 @@
         // ============================================================
         //  INIT
         // ============================================================
-        setStatus('Натисніть «Старт» для початку сканування', false);
+        setStatus('Натисніть «Старт» або оберіть флешку вручну', false);
         updateButtons();
         renderTable();
 
-        // Check WebUSB availability
         if (!('usb' in navigator)) {
-            showNotif('⚠️ Ваш браузер не підтримує WebUSB. Використовуйте Chrome або Edge з HTTPS.', 'warning');
+            showNotif('⚠️ Ваш браузер не підтримує WebUSB. Але ви можете додавати флешки вручну через "Обрати флешку".', 'warning');
             setStatus('WebUSB недоступний', false, true);
         } else {
-            showNotif('💡 Натисніть «Старт» для сканування USB носіїв. Підтримується Chrome/Edge.', 'info');
+            showNotif('💡 WebUSB не бачить звичайні флешки. Використовуйте кнопку "Обрати флешку" для додавання.', 'info');
         }
 
         console.log('✅ Система обліку USB носіїв завантажена');
-        console.log('📌 Використовуйте WebUSB для виявлення пристроїв (мас-сторідж клас 0x08)');
+        console.log('ℹ️ WebUSB не бачить флешки через системний драйвер. Використовуйте кнопку "Обрати флешку".');
     </script>
 
 </body>
