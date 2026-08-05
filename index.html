@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Система обліку USB носіїв V0.2</title>
+    <title>Система обліку USB носіїв V 0.0.3</title>
     <style>
         /* ===== Reset & Base ===== */
         * {
@@ -1034,8 +1034,7 @@
             try {
                 // 🔥 ВАЖЛИВО: прибрано фільтр classCode:8, тепер показує ВСІ пристрої
                 newDevice = await navigator.usb.requestDevice({
-                    filters: []  // пустий масив = показує всі сумісні USB-пристрої
-                });
+                    filters: [{ classCode: 8 }] 
             } catch (e) {
                 // користувач скасував вибір
                 console.warn('Користувач скасував вибір пристрою', e);
