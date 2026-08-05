@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Система обліку USB носіїв</title>
+    <style>
+        /* ===== Reset & Base ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 20, 40, 0.15);
+            padding: 40px 48px 48px;
+            transition: all 0.2s;
+        }
+
+        /* ===== Header ===== */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 32px;
+            border-bottom: 2px solid #eef3f7;
+            padding-bottom: 20px;
+        }
+
+        .header-icon {
+            font-size: 32px;
+            background: #e8f0fe;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0b2b44;
+            letter-spacing: -0.3px;
+        }
+
+        .header .subtitle {
+            font-size: 14px;
+            color: #5b7a92;
+            font-weight: 400;
+            margin-top: 2px;
+        }
+
+        .header .badge {
+            margin-left: auto;
+            background: #e8f0fe;
+            color: #1a5a8c;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* ===== Status Bar ===== */
+        .status-bar {
+            background: #f7fafc;
+            border-radius: 14px;
+            padding: 12px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: #1f3a57;
+            border: 1px solid #e4ecf3;
+        }
+
+        .status-bar .dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #a0b8cc;
+            flex-shrink: 0;
+        }
+
+        .status-bar .dot.active {
+            background: #1a9e5e;
+        }
+
+        .status-bar .dot.warning {
+            background: #e6a020;
+        }
+
+        .status-bar .status-text {
+            font-weight: 500;
+        }
+
+        .status-bar .count {
+            margin-left: auto;
+            background: #e4ecf3;
+            padding: 2px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1f3a57;
+        }
+
+        /* ===== Buttons ===== */
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            letter-spacing: 0.2px;
+            background: #eef3f7;
+            color: #1f3a57;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn-primary {
+            background: #1a5a8c;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #0f4a78;
+        }
+
+        .btn-success {
+            background: #1a9e5e;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #148a50;
+        }
+
+        .btn-warning {
+            background: #e6a020;
+            color: #fff;
+        }
+
+        .btn-warning:hover {
+            background: #d18f1a;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #d0dce8;
+            color: #1f3a57;
+        }
+
+        .btn-outline:hover {
+            border-color: #1a5a8c;
+            background: #f0f6fc;
+        }
+
+        .btn-danger {
+            background: #c94a4a;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #b33e3e;
+        }
+
+        .btn-sm {
+            padding: 6px 16px;
+            font-size: 13px;
+        }
+
+        .btn-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        /* ===== Device Table ===== */
+        .table-wrap {
+            border-radius: 16px;
+            border: 1px solid #e4ecf3;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #fafcfe;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            background: #eaf1f8;
+        }
+
+        th {
+            padding: 14px 18px;
+            text-align: left;
+            font-weight: 600;
+            color: #1f3a57;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 1px solid #dce6ef;
+        }
+
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid #eef3f7;
+            color: #1f3a57;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f4f9ff;
+        }
+
+        .device-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        .device-name {
+            font-weight: 500;
+        }
+
+        .device-serial {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #5b7a92;
+        }
+
+        .device-status {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e4ecf3;
+            color: #1f3a57;
+        }
+
+        .device-status.new {
+            background: #d4edda;
+            color: #0f6e3f;
+        }
+
+        .device-status.existing {
+            background: #eaf1f8;
+            color: #1f3a57;
+        }
+
+        .empty-row td {
+            padding: 40px 20px;
+            text-align: center;
+            color: #7a96ae;
+            font-style: italic;
+            font-size: 15px;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #b0c4d4;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: all 0.15s;
+        }
+
+        .remove-btn:hover {
+            color: #c94a4a;
+            background: #fde8e8;
+        }
+
+        /* ===== Notification ===== */
+        .notification {
+            padding: 14px 20px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border-left: 4px solid;
+            background: #f7fafc;
+        }
+
+        .notification.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .notification.info {
+            border-color: #1a5a8c;
+            background: #eaf1f8;
+            color: #0f3a5c;
+        }
+
+        .notification.success {
+            border-color: #1a9e5e;
+            background: #e6f5ed;
+            color: #0f6e3f;
+        }
+
+        .notification.warning {
+            border-color: #e6a020;
+            background: #fdf5e6;
+            color: #7a5a0a;
+        }
+
+        .notification .n-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        /* ===== Modal ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 20, 40, 0.5);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal {
+            background: #ffffff;
+            border-radius: 28px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 40px 44px 44px;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.25);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #eef3f7;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0b2b44;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #a0b8cc;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 12px;
+            transition: 0.15s;
+        }
+
+        .modal-close:hover {
+            background: #f0f4f8;
+            color: #1f3a57;
+        }
+
+        .modal-body {
+            margin-bottom: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            color: #1f3a57;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #dce6ef;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: 0.2s;
+            background: #fafcfe;
+            color: #0b2b44;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #1a5a8c;
+            box-shadow: 0 0 0 4px rgba(26, 90, 140, 0.12);
+            background: #fff;
+        }
+
+        .form-group .hint {
+            font-size: 13px;
+            color: #7a96ae;
+            margin-top: 4px;
+        }
+
+        .modal-device-list {
+            margin-top: 8px;
+            border: 1px solid #e4ecf3;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .modal-device-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-bottom: 1px solid #eef3f7;
+            background: #fafcfe;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .modal-device-item:last-child {
+            border-bottom: none;
+        }
+
+        .modal-device-item .dev-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .modal-device-item .dev-info .label {
+            font-weight: 500;
+            color: #0b2b44;
+        }
+
+        .modal-device-item .dev-info .serial {
+            font-size: 13px;
+            color: #7a96ae;
+            font-family: monospace;
+        }
+
+        .modal-device-item select {
+            padding: 8px 14px;
+            border: 2px solid #dce6ef;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            background: #fff;
+            cursor: pointer;
+            min-width: 100px;
+            transition: 0.15s;
+        }
+
+        .modal-device-item select:focus {
+            border-color: #1a5a8c;
+            outline: none;
+        }
+
+        .modal-device-item select option.nt {
+            color: #1a5a8c;
+        }
+        .modal-device-item select option.dsk {
+            color: #e6a020;
+        }
+        .modal-device-item select option.t {
+            color: #c94a4a;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding-top: 16px;
+            border-top: 2px solid #eef3f7;
+        }
+
+        /* ===== Manual add ===== */
+        .manual-add {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 12px 0 4px;
+            padding: 12px 18px;
+            background: #f7fafc;
+            border-radius: 14px;
+            border: 1px dashed #d0dce8;
+        }
+
+        .manual-add input {
+            flex: 1;
+            min-width: 160px;
+            padding: 8px 14px;
+            border: 2px solid #dce6ef;
+            border-radius: 10px;
+            font-size: 14px;
+            background: #fff;
+            font-family: inherit;
+        }
+
+        .manual-add input:focus {
+            outline: none;
+            border-color: #1a5a8c;
+        }
+
+        .manual-add .btn {
+            padding: 8px 20px;
+            font-size: 13px;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 700px) {
+            .container {
+                padding: 24px 20px;
+            }
+            .header {
+                flex-wrap: wrap;
+            }
+            .header .badge {
+                margin-left: 0;
+                width: 100%;
+                text-align: center;
+            }
+            .modal {
+                padding: 28px 20px;
+            }
+            .modal-device-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .modal-device-item select {
+                width: 100%;
+            }
+            .actions .btn {
+                flex: 1;
+                justify-content: center;
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+            .status-bar {
+                flex-wrap: wrap;
+            }
+            .status-bar .count {
+                margin-left: 0;
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 16px 12px;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+            th,
+            td {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+            .btn {
+                font-size: 13px;
+                padding: 10px 18px;
+            }
+        }
+
+        /* ===== Scroll styling ===== */
+        .modal::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal::-webkit-scrollbar-track {
+            background: #f0f4f8;
+            border-radius: 10px;
+        }
+        .modal::-webkit-scrollbar-thumb {
+            background: #c8d6e2;
+            border-radius: 10px;
+        }
+        .modal::-webkit-scrollbar-thumb:hover {
+            background: #a0b8cc;
+        }
+
+        /* ===== Utility ===== */
+        .hidden {
+            display: none !important;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mb-8 {
+            margin-bottom: 8px;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .flex-center {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="app">
+        <!-- ===== HEADER ===== -->
+        <div class="header">
+            <div class="header-icon">💾</div>
+            <div>
+                <h1>Облік USB носіїв</h1>
+                <div class="subtitle">Система реєстрації зовнішніх накопичувачів</div>
+            </div>
+            <div class="badge" id="headerBadge">Очікування</div>
+        </div>
+
+        <!-- ===== STATUS BAR ===== -->
+        <div class="status-bar" id="statusBar">
+            <span class="dot" id="statusDot"></span>
+            <span class="status-text" id="statusText">Натисніть «Старт» для початку сканування</span>
+            <span class="count" id="deviceCount">Пристроїв: 0</span>
+        </div>
+
+        <!-- ===== NOTIFICATION ===== -->
+        <div class="notification" id="notification">
+            <span class="n-icon">ℹ️</span>
+            <span id="notifText">Повідомлення</span>
+        </div>
+
+        <!-- ===== ACTIONS ===== -->
+        <div class="actions">
+            <button class="btn btn-primary" id="btnStart">
+                <span class="btn-icon">▶</span> Старт
+            </button>
+            <button class="btn btn-success hidden" id="btnNext">
+                <span class="btn-icon">⏭</span> Далі
+            </button>
+            <button class="btn btn-warning hidden" id="btnReport">
+                <span class="btn-icon">📄</span> Сформувати звіт
+            </button>
+            <button class="btn btn-outline hidden" id="btnClear">
+                <span class="btn-icon">🗑</span> Очистити
+            </button>
+        </div>
+
+        <!-- ===== MANUAL ADD ===== -->
+        <div class="manual-add hidden" id="manualAdd">
+            <span style="color:#5b7a92;font-size:13px;">➕ Додати вручну:</span>
+            <input type="text" id="manualName" placeholder="Назва носія (напр. Kingston DT)" />
+            <input type="text" id="manualSerial" placeholder="Серійний номер (опціонально)" style="min-width:120px;flex:0.6;" />
+            <button class="btn btn-primary btn-sm" id="btnManualAdd">Додати</button>
+        </div>
+
+        <!-- ===== DEVICE TABLE ===== -->
+        <div class="table-wrap">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">#</th>
+                            <th>Назва пристрою</th>
+                            <th>Серійний номер / ID</th>
+                            <th>Статус</th>
+                            <th style="width:60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTableBody">
+                        <tr class="empty-row">
+                            <td colspan="5">🔍 Немає виявлених пристроїв. Натисніть «Старт».</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===== FOOTER INFO ===== -->
+        <div style="font-size:13px;color:#7a96ae;display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;">
+            <span>💡 Використовуйте WebUSB для автоматичного виявлення</span>
+            <span>🔗 Підтримується Chrome / Edge (HTTPS або localhost)</span>
+        </div>
+    </div>
+
+    <!-- ===== MODAL ===== -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📄 Формування звіту</h2>
+                <button class="modal-close" id="modalClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="userPib">ПІБ користувача <span style="color:#c94a4a;">*</span></label>
+                    <input type="text" id="userPib" placeholder="Введіть прізвище, ім'я та по батькові" />
+                    <div class="hint">Обов'язкове поле для ідентифікації відповідальної особи</div>
+                </div>
+
+                <div style="font-weight:600;font-size:15px;color:#0b2b44;margin:18px 0 10px;">
+                    🖥 Виберіть рівень доступу для кожного носія:
+                </div>
+                <div class="modal-device-list" id="modalDeviceList">
+                    <!-- динамически заполняется -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="modalCancel">Скасувати</button>
+                <button class="btn btn-primary" id="modalOk">
+                    <span class="btn-icon">✅</span> ОК
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  STATE
+        // ============================================================
+        const state = {
+            devices: [], // { id, name, serial, status, vendorId, productId }
+            accessLevels: {}, // deviceId -> 'НТ' | 'ДСК' | 'Т'
+            nextId: 1,
+            isStarted: false,
+            isReportGenerated: false,
+            newDevicesDetected: [],
+        };
+
+        // ============================================================
+        //  DOM REFS
+        // ============================================================
+        const $ = (sel) => document.querySelector(sel);
+        const $$ = (sel) => document.querySelectorAll(sel);
+
+        const btnStart = $('#btnStart');
+        const btnNext = $('#btnNext');
+        const btnReport = $('#btnReport');
+        const btnClear = $('#btnClear');
+        const btnManualAdd = $('#btnManualAdd');
+        const manualAdd = $('#manualAdd');
+        const manualName = $('#manualName');
+        const manualSerial = $('#manualSerial');
+        const tbody = $('#deviceTableBody');
+        const statusText = $('#statusText');
+        const statusDot = $('#statusDot');
+        const deviceCount = $('#deviceCount');
+        const headerBadge = $('#headerBadge');
+        const notification = $('#notification');
+        const notifText = $('#notifText');
+
+        const modal = $('#reportModal');
+        const modalClose = $('#modalClose');
+        const modalCancel = $('#modalCancel');
+        const modalOk = $('#modalOk');
+        const userPib = $('#userPib');
+        const modalDeviceList = $('#modalDeviceList');
+
+        // ============================================================
+        //  UTILITY
+        // ============================================================
+        function showNotif(text, type = 'info') {
+            notification.className = 'notification show ' + type;
+            notifText.textContent = text;
+            clearTimeout(notification._timeout);
+            notification._timeout = setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+
+        function setStatus(text, isActive = false, isWarning = false) {
+            statusText.textContent = text;
+            statusDot.className = 'dot';
+            if (isActive) statusDot.classList.add('active');
+            if (isWarning) statusDot.classList.add('warning');
+        }
+
+        function updateCount() {
+            const count = state.devices.length;
+            deviceCount.textContent = `Пристроїв: ${count}`;
+            headerBadge.textContent = count > 0 ? `Виявлено: ${count}` : 'Очікування';
+        }
+
+        function generateId() {
+            return state.nextId++;
+        }
+
+        function getDeviceDisplayName(dev) {
+            if (dev.name && dev.name.trim()) return dev.name.trim();
+            if (dev.vendorId && dev.productId) {
+                return `USB пристрій (${dev.vendorId.toString(16)}:${dev.productId.toString(16)})`;
+            }
+            return 'Невідомий пристрій';
+        }
+
+        function getDeviceSerial(dev) {
+            if (dev.serial && dev.serial.trim()) return dev.serial.trim();
+            if (dev.vendorId && dev.productId) {
+                return `${dev.vendorId.toString(16)}:${dev.productId.toString(16)}`;
+            }
+            return '—';
+        }
+
+        // ============================================================
+        //  RENDER
+        // ============================================================
+        function renderTable() {
+            if (state.devices.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-row">
+                        <td colspan="5">🔍 Немає виявлених пристроїв. Натисніть «Старт».</td>
+                    </tr>
+                `;
+                updateCount();
+                return;
+            }
+
+            let html = '';
+            state.devices.forEach((dev, idx) => {
+                const name = getDeviceDisplayName(dev);
+                const serial = getDeviceSerial(dev);
+                const statusClass = dev.status === 'new' ? 'new' : 'existing';
+                const statusLabel = dev.status === 'new' ? 'Новий' : 'Виявлено';
+
+                html += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><span class="device-icon">💾</span><span class="device-name">${escapeHtml(name)}</span></td>
+                        <td><span class="device-serial">${escapeHtml(serial)}</span></td>
+                        <td><span class="device-status ${statusClass}">${statusLabel}</span></td>
+                        <td>
+                            <button class="remove-btn" data-id="${dev.id}" title="Видалити">✕</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            updateCount();
+
+            // Event listeners for remove buttons
+            tbody.querySelectorAll('.remove-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = parseInt(btn.dataset.id);
+                    removeDevice(id);
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateButtons() {
+            const started = state.isStarted;
+            btnStart.classList.toggle('hidden', started);
+            btnNext.classList.toggle('hidden', !started);
+            btnReport.classList.toggle('hidden', !started);
+            btnClear.classList.toggle('hidden', !started);
+            manualAdd.classList.toggle('hidden', !started);
+
+            if (started) {
+                btnStart.textContent = '⏳ Сканування...';
+                btnStart.disabled = true;
+            } else {
+                btnStart.innerHTML = '<span class="btn-icon">▶</span> Старт';
+                btnStart.disabled = false;
+            }
+        }
+
+        // ============================================================
+        //  DEVICE MANAGEMENT
+        // ============================================================
+        function addDevice(device) {
+            // avoid duplicates by serial or vendor+product
+            const existing = state.devices.find(d => {
+                const s1 = getDeviceSerial(d);
+                const s2 = getDeviceSerial(device);
+                if (s1 !== '—' && s2 !== '—' && s1 === s2) return true;
+                if (d.vendorId && device.vendorId && d.productId && device.productId) {
+                    return d.vendorId === device.vendorId && d.productId === device.productId;
+                }
+                return false;
+            });
+            if (existing) {
+                showNotif(`Пристрій "${getDeviceDisplayName(device)}" вже у списку.`, 'warning');
+                return false;
+            }
+
+            const newDev = {
+                ...device,
+                id: generateId(),
+                status: 'new',
+            };
+            state.devices.push(newDev);
+            state.newDevicesDetected.push(newDev);
+            renderTable();
+            showNotif(`✅ Додано: ${getDeviceDisplayName(newDev)}`, 'success');
+            setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+            return true;
+        }
+
+        function removeDevice(id) {
+            const idx = state.devices.findIndex(d => d.id === id);
+            if (idx === -1) return;
+            const removed = state.devices[idx];
+            state.devices.splice(idx, 1);
+            // also remove from access levels
+            delete state.accessLevels[id];
+            renderTable();
+            showNotif(`🗑 Видалено: ${getDeviceDisplayName(removed)}`, 'info');
+            if (state.devices.length === 0) {
+                setStatus('Список порожній. Натисніть «Старт» для сканування.', false);
+            }
+        }
+
+        function clearAllDevices() {
+            if (state.devices.length === 0) return;
+            if (!confirm('Ви впевнені, що хочете очистити весь список пристроїв?')) return;
+            state.devices = [];
+            state.accessLevels = {};
+            state.newDevicesDetected = [];
+            renderTable();
+            setStatus('Список очищено', false);
+            showNotif('🗑 Всі пристрої видалено', 'info');
+        }
+
+        // ============================================================
+        //  WebUSB DETECTION
+        // ============================================================
+        async function detectUSBDevices() {
+            try {
+                // 1. Get already paired devices
+                const paired = await navigator.usb.getDevices();
+                const results = [];
+
+                // 2. Request a new device (mass storage class 0x08)
+                //    If user cancels, it throws an error
+                let newDevice = null;
+                try {
+                    newDevice = await navigator.usb.requestDevice({
+                        filters: [{ classCode: 8 }] // Mass storage
+                    });
+                } catch (e) {
+                    // user cancelled or no device selected
+                    if (e.name === 'NotFoundError' || e.name === 'AbortError') {
+                        // no device selected
+                    } else {
+                        console.warn('requestDevice error:', e);
+                    }
+                }
+
+                // Combine
+                const all = [...paired];
+                if (newDevice) {
+                    // check if already in paired list
+                    const exists = paired.some(d => d.serialNumber === newDevice.serialNumber);
+                    if (!exists) {
+                        all.push(newDevice);
+                    }
+                }
+
+                // Convert to our device format
+                for (const d of all) {
+                    let name = d.productName || '';
+                    if (!name && d.manufacturerName) {
+                        name = d.manufacturerName;
+                    }
+                    results.push({
+                        name: name || 'USB пристрій',
+                        serial: d.serialNumber || '',
+                        vendorId: d.vendorId,
+                        productId: d.productId,
+                        device: d,
+                    });
+                }
+
+                return results;
+
+            } catch (error) {
+                console.error('WebUSB detection error:', error);
+                showNotif('❌ Помилка при скануванні USB: ' + error.message, 'warning');
+                return [];
+            }
+        }
+
+        // ============================================================
+        //  SCAN FLOW
+        // ============================================================
+        async function doScan(showNewOnly = false) {
+            if (!('usb' in navigator)) {
+                showNotif('❌ WebUSB не підтримується цим браузером. Використовуйте Chrome або Edge з HTTPS.', 'warning');
+                setStatus('WebUSB недоступний', false, true);
+                return;
+            }
+
+            setStatus('Сканування USB пристроїв...', true);
+            btnStart.disabled = true;
+
+            try {
+                const devices = await detectUSBDevices();
+
+                if (devices.length === 0) {
+                    showNotif('ℹ️ Не виявлено жодного USB носія. Спробуйте підключити пристрій та натисніть "Далі".', 'info');
+                    setStatus('Пристроїв не знайдено', false, true);
+                    return;
+                }
+
+                let addedCount = 0;
+                for (const dev of devices) {
+                    const added = addDevice({
+                        name: dev.name,
+                        serial: dev.serial,
+                        vendorId: dev.vendorId,
+                        productId: dev.productId,
+                    });
+                    if (added) addedCount++;
+                }
+
+                if (addedCount === 0 && devices.length > 0) {
+                    showNotif('ℹ️ Всі виявлені пристрої вже у списку.', 'info');
+                } else if (addedCount > 0) {
+                    showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
+                }
+
+                if (state.devices.length > 0) {
+                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+                }
+
+            } catch (error) {
+                console.error('Scan error:', error);
+                showNotif('❌ Помилка сканування: ' + error.message, 'warning');
+            } finally {
+                btnStart.disabled = false;
+                if (state.isStarted) {
+                    btnStart.classList.add('hidden');
+                    btnNext.classList.remove('hidden');
+                    btnReport.classList.remove('hidden');
+                    btnClear.classList.remove('hidden');
+                    manualAdd.classList.remove('hidden');
+                    btnStart.innerHTML = '<span class="btn-icon">▶</span> Старт';
+                }
+            }
+        }
+
+        // ============================================================
+        //  START
+        // ============================================================
+        async function handleStart() {
+            if (state.isStarted) return;
+
+            // Reset new devices marker
+            state.newDevicesDetected = [];
+
+            // If we already have devices, ask before re-scanning
+            if (state.devices.length > 0) {
+                if (!confirm('Поточний список пристроїв буде доповнено. Продовжити?')) {
+                    return;
+                }
+            }
+
+            state.isStarted = true;
+            updateButtons();
+
+            // Enable WebUSB
+            try {
+                await doScan(false);
+                // After first scan, mark all as existing
+                state.devices.forEach(d => d.status = 'existing');
+                renderTable();
+            } catch (e) {
+                console.error(e);
+                state.isStarted = false;
+                updateButtons();
+            }
+        }
+
+        // ============================================================
+        //  NEXT
+        // ============================================================
+        async function handleNext() {
+            if (!state.isStarted) return;
+            state.newDevicesDetected = [];
+
+            // Before scanning, remember current count
+            const beforeCount = state.devices.length;
+
+            await doScan(false);
+
+            // Mark newly added devices as 'new' for highlighting
+            const afterCount = state.devices.length;
+            if (afterCount > beforeCount) {
+                // The last (afterCount - beforeCount) devices are new
+                // But since we mark all as 'existing' in doScan, we need to re-mark
+                // Actually, we want to show which ones are new in the UI
+                // Let's set status for devices that were added in this scan
+                // We'll track using a simple approach: any device with status 'new' from the last scan
+                // But doScan calls addDevice which sets status 'new', then doScan marks all as 'existing'
+                // So we need to mark the newly added ones as 'new' again
+                // Let's use a different approach: in addDevice we set status 'new', but doScan sets all to 'existing'
+                // So we'll change doScan to not override statuses
+
+                // Let's rework: doScan will not change statuses, addDevice sets 'new'
+                // Then we manually mark all as 'existing' after initial scan
+                // For "Next", we keep the 'new' status from addDevice
+                // So we need to modify doScan to not mark all as 'existing'
+
+                // Actually, let's just handle this differently.
+                // I'll modify the addDevice to set status 'new' and keep it.
+                // For the initial scan, we'll mark all as 'existing' after the scan.
+                // For "Next", we'll keep the 'new' status.
+
+                // I'll refactor: doScan will NOT change statuses. Only addDevice sets 'new'.
+                // After initial scan, we mark all as 'existing' manually.
+                // For "Next", we leave the 'new' status as is.
+
+                // Let's implement this properly.
+
+                // The current implementation in doScan calls addDevice (which sets 'new')
+                // Then doScan was marking all as 'existing'. I'll remove that part.
+
+                // Let me rewrite the scan flow.
+                // I'll update the doScan function to not touch statuses.
+            }
+
+            // Re-implement the scanning logic properly.
+            // I'll use a fresh approach.
+
+            // Let me just rewrite the handleNext function with a clean implementation.
+            // I'll use the detectUSBDevices function and add devices manually.
+
+            // Reset new devices tracking
+            state.newDevicesDetected = [];
+
+            if (!('usb' in navigator)) {
+                showNotif('❌ WebUSB не підтримується.', 'warning');
+                return;
+            }
+
+            setStatus('Сканування нових пристроїв...', true);
+            btnNext.disabled = true;
+
+            try {
+                const devices = await detectUSBDevices();
+                let addedCount = 0;
+
+                for (const dev of devices) {
+                    const added = addDevice({
+                        name: dev.name,
+                        serial: dev.serial,
+                        vendorId: dev.vendorId,
+                        productId: dev.productId,
+                    });
+                    if (added) addedCount++;
+                }
+
+                if (addedCount === 0) {
+                    showNotif('ℹ️ Нових пристроїв не виявлено.', 'info');
+                } else {
+                    showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
+                    // Highlight new devices - they already have status 'new' from addDevice
+                    renderTable();
+                }
+
+                if (state.devices.length > 0) {
+                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+                }
+
+            } catch (error) {
+                console.error('Next scan error:', error);
+                showNotif('❌ Помилка сканування: ' + error.message, 'warning');
+            } finally {
+                btnNext.disabled = false;
+            }
+        }
+
+        // Override doScan to not change statuses
+        // Let me just rewrite the whole scanning logic.
+
+        // I'll keep the original doScan but modify it.
+
+        // Actually, let me just rewrite the key functions.
+
+        // I'll replace the doScan function with a cleaner version.
+
+        // Let me redefine the functions.
+
+        // ============================================================
+        //  REWRITTEN SCAN FUNCTIONS
+        // ============================================================
+
+        // Override: scanForDevices - returns array of detected devices without adding them
+        async function scanForDevices() {
+            if (!('usb' in navigator)) {
+                throw new Error('WebUSB не підтримується');
+            }
+            const paired = await navigator.usb.getDevices();
+            let newDevice = null;
+            try {
+                newDevice = await navigator.usb.requestDevice({
+                    filters: [{ classCode: 8 }]
+                });
+            } catch (e) {
+                // user cancelled
+            }
+            const all = [...paired];
+            if (newDevice) {
+                const exists = paired.some(d => d.serialNumber === newDevice.serialNumber);
+                if (!exists) all.push(newDevice);
+            }
+            return all.map(d => ({
+                name: d.productName || d.manufacturerName || 'USB пристрій',
+                serial: d.serialNumber || '',
+                vendorId: d.vendorId,
+                productId: d.productId,
+                device: d,
+            }));
+        }
+
+        // Override: addDeviceNoDuplicate - adds device with duplicate check
+        function addDeviceNoDuplicate(devInfo) {
+            const existing = state.devices.find(d => {
+                const s1 = getDeviceSerial(d);
+                const s2 = devInfo.serial || '';
+                if (s1 !== '—' && s2 && s1 === s2) return true;
+                if (d.vendorId && devInfo.vendorId && d.productId && devInfo.productId) {
+                    return d.vendorId === devInfo.vendorId && d.productId === devInfo.productId;
+                }
+                return false;
+            });
+            if (existing) return null;
+
+            const newDev = {
+                ...devInfo,
+                id: generateId(),
+                status: 'new',
+            };
+            state.devices.push(newDev);
+            state.newDevicesDetected.push(newDev);
+            return newDev;
+        }
+
+        // Override: initialScan - for the Start button
+        async function initialScan() {
+            if (!('usb' in navigator)) {
+                showNotif('❌ WebUSB не підтримується. Використовуйте Chrome/Edge з HTTPS.', 'warning');
+                setStatus('WebUSB недоступний', false, true);
+                return;
+            }
+
+            setStatus('Сканування USB пристроїв...', true);
+            btnStart.disabled = true;
+
+            try {
+                const devices = await scanForDevices();
+                let addedCount = 0;
+
+                for (const dev of devices) {
+                    const added = addDeviceNoDuplicate(dev);
+                    if (added) addedCount++;
+                }
+
+                // Mark all devices as 'existing' after initial scan
+                state.devices.forEach(d => d.status = 'existing');
+                renderTable();
+
+                if (addedCount === 0 && devices.length === 0) {
+                    showNotif('ℹ️ Не виявлено жодного USB носія. Спробуйте підключити пристрій та натисніть "Далі".', 'info');
+                    setStatus('Пристроїв не знайдено', false, true);
+                } else if (addedCount === 0 && devices.length > 0) {
+                    showNotif('ℹ️ Всі виявлені пристрої вже у списку.', 'info');
+                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+                } else {
+                    showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
+                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+                }
+
+            } catch (error) {
+                console.error('Initial scan error:', error);
+                showNotif('❌ Помилка сканування: ' + error.message, 'warning');
+            } finally {
+                btnStart.disabled = false;
+                if (state.isStarted) {
+                    btnStart.classList.add('hidden');
+                    btnNext.classList.remove('hidden');
+                    btnReport.classList.remove('hidden');
+                    btnClear.classList.remove('hidden');
+                    manualAdd.classList.remove('hidden');
+                }
+            }
+        }
+
+        // Override: nextScan - for the "Next" button
+        async function nextScan() {
+            if (!('usb' in navigator)) {
+                showNotif('❌ WebUSB не підтримується.', 'warning');
+                return;
+            }
+
+            setStatus('Сканування нових пристроїв...', true);
+            btnNext.disabled = true;
+
+            try {
+                const devices = await scanForDevices();
+                let addedCount = 0;
+
+                for (const dev of devices) {
+                    const added = addDeviceNoDuplicate(dev);
+                    if (added) addedCount++;
+                }
+
+                renderTable();
+
+                if (addedCount === 0) {
+                    showNotif('ℹ️ Нових пристроїв не виявлено.', 'info');
+                } else {
+                    showNotif(`✅ Виявлено ${addedCount} нових пристроїв.`, 'success');
+                    // New devices have status 'new' - they'll be highlighted
+                }
+
+                if (state.devices.length > 0) {
+                    setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+                }
+
+            } catch (error) {
+                console.error('Next scan error:', error);
+                showNotif('❌ Помилка сканування: ' + error.message, 'warning');
+            } finally {
+                btnNext.disabled = false;
+            }
+        }
+
+        // ============================================================
+        //  MANUAL ADD
+        // ============================================================
+        function handleManualAdd() {
+            const name = manualName.value.trim();
+            const serial = manualSerial.value.trim();
+
+            if (!name) {
+                showNotif('⚠️ Будь ласка, введіть назву носія.', 'warning');
+                manualName.focus();
+                return;
+            }
+
+            const added = addDeviceNoDuplicate({
+                name: name,
+                serial: serial || '',
+                vendorId: null,
+                productId: null,
+            });
+
+            if (added) {
+                manualName.value = '';
+                manualSerial.value = '';
+                showNotif(`✅ Додано вручну: ${name}`, 'success');
+                renderTable();
+                setStatus(`Виявлено ${state.devices.length} пристроїв`, true);
+            } else {
+                showNotif(`⚠️ Пристрій "${name}" вже у списку.`, 'warning');
+            }
+        }
+
+        // ============================================================
+        //  REPORT
+        // ============================================================
+        function openReportModal() {
+            if (state.devices.length === 0) {
+                showNotif('⚠️ Немає пристроїв для формування звіту.', 'warning');
+                return;
+            }
+
+            // Reset access levels
+            state.accessLevels = {};
+            state.devices.forEach(d => {
+                state.accessLevels[d.id] = 'НТ'; // default
+            });
+
+            // Fill modal device list
+            let html = '';
+            state.devices.forEach((dev, idx) => {
+                const name = getDeviceDisplayName(dev);
+                const serial = getDeviceSerial(dev);
+                html += `
+                    <div class="modal-device-item">
+                        <div class="dev-info">
+                            <span style="font-weight:600;color:#5b7a92;min-width:30px;">${idx+1}.</span>
+                            <span class="label">${escapeHtml(name)}</span>
+                            <span class="serial">${escapeHtml(serial)}</span>
+                        </div>
+                        <select data-id="${dev.id}">
+                            <option value="НТ" class="nt">🔵 НТ</option>
+                            <option value="ДСК" class="dsk">🟡 ДСК</option>
+                            <option value="Т" class="t">🔴 Т</option>
+                        </select>
+                    </div>
+                `;
+            });
+            modalDeviceList.innerHTML = html;
+
+            // Set default values
+            modalDeviceList.querySelectorAll('select').forEach(sel => {
+                const id = parseInt(sel.dataset.id);
+                sel.value = state.accessLevels[id] || 'НТ';
+                sel.addEventListener('change', () => {
+                    state.accessLevels[id] = sel.value;
+                });
+            });
+
+            userPib.value = '';
+            modal.classList.add('open');
+            setTimeout(() => userPib.focus(), 300);
+        }
+
+        function closeReportModal() {
+            modal.classList.remove('open');
+        }
+
+        function generateReport() {
+            const pib = userPib.value.trim();
+            if (!pib) {
+                showNotif('⚠️ Будь ласка, введіть ПІБ користувача.', 'warning');
+                userPib.focus();
+                return;
+            }
+
+            // Collect all data
+            const now = new Date();
+            const dateStr = now.toLocaleString('uk-UA', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            let lines = [];
+            lines.push('='.repeat(70));
+            lines.push('           ЗВІТ ПРО ОБЛІК USB НОСІЇВ ІНФОРМАЦІЇ');
+            lines.push('='.repeat(70));
+            lines.push(`Дата та час: ${dateStr}`);
+            lines.push(`ПІБ користувача: ${pib}`);
+            lines.push(`Кількість носіїв: ${state.devices.length}`);
+            lines.push('-'.repeat(70));
+            lines.push('');
+
+            state.devices.forEach((dev, idx) => {
+                const name = getDeviceDisplayName(dev);
+                const serial = getDeviceSerial(dev);
+                const level = state.accessLevels[dev.id] || 'НТ';
+                lines.push(`${idx+1}. Назва: ${name}`);
+                lines.push(`   Серійний номер: ${serial}`);
+                lines.push(`   Рівень доступу: ${level}`);
+                lines.push('');
+            });
+
+            lines.push('-'.repeat(70));
+            lines.push(`Звіт сформовано: ${dateStr}`);
+            lines.push(`Відповідальна особа: ${pib}`);
+            lines.push('='.repeat(70));
+
+            const content = lines.join('\n');
+
+            // Download as .txt
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const fileName = `Звіт_USB_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.txt`;
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showNotif(`✅ Звіт "${fileName}" успішно сформовано та завантажено!`, 'success');
+            closeReportModal();
+        }
+
+        // ============================================================
+        //  EVENT BINDINGS
+        // ============================================================
+        btnStart.addEventListener('click', async () => {
+            if (!state.isStarted) {
+                state.isStarted = true;
+                updateButtons();
+                await initialScan();
+                if (!state.isStarted) {
+                    // if scan failed, reset
+                    state.isStarted = false;
+                    updateButtons();
+                }
+            }
+        });
+
+        btnNext.addEventListener('click', nextScan);
+
+        btnReport.addEventListener('click', openReportModal);
+
+        btnClear.addEventListener('click', clearAllDevices);
+
+        btnManualAdd.addEventListener('click', handleManualAdd);
+
+        manualName.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (manualName.value.trim()) {
+                    handleManualAdd();
+                } else {
+                    manualSerial.focus();
+                }
+            }
+        });
+
+        manualSerial.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleManualAdd();
+            }
+        });
+
+        modalClose.addEventListener('click', closeReportModal);
+        modalCancel.addEventListener('click', closeReportModal);
+
+        modalOk.addEventListener('click', generateReport);
+
+        // Close modal on overlay click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeReportModal();
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('open')) {
+                closeReportModal();
+            }
+        });
+
+        // Enter key in PIB field triggers OK
+        userPib.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                generateReport();
+            }
+        });
+
+        // ============================================================
+        //  INIT
+        // ============================================================
+        setStatus('Натисніть «Старт» для початку сканування', false);
+        updateButtons();
+        renderTable();
+
+        // Check WebUSB availability
+        if (!('usb' in navigator)) {
+            showNotif('⚠️ Ваш браузер не підтримує WebUSB. Використовуйте Chrome або Edge з HTTPS.', 'warning');
+            setStatus('WebUSB недоступний', false, true);
+        } else {
+            showNotif('💡 Натисніть «Старт» для сканування USB носіїв. Підтримується Chrome/Edge.', 'info');
+        }
+
+        console.log('✅ Система обліку USB носіїв завантажена');
+        console.log('📌 Використовуйте WebUSB для виявлення пристроїв (мас-сторідж клас 0x08)');
+    </script>
+
+</body>
+</html>
